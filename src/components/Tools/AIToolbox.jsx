@@ -111,7 +111,7 @@ const AIToolbox = ({ onShowToast }) => {
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6 border-b border-white/10 pb-6 gap-4">
         <div>
           <h2 className="text-xl lg:text-2xl font-bold flex items-center gap-3 text-white">
-            <span className="text-2xl animate-pulse">✨</span> Trung tâm Sáng tạo AI
+            <span className="text-2xl animate-pulse">🤖</span> Trung tâm Sáng tạo AI 🧠
           </h2>
         </div>
       </div>
