@@ -14,7 +14,7 @@ const ActionButton = ({ onClick, label, disabled }) => (
 const ResultBox = ({ content, onCopy, placeholder, minHeight = "120px" }) => (
   <div className="space-y-2 group h-full flex flex-col">
     <div 
-      className={`flex-1 min-h-[${minHeight}] bg-slate-950/50 p-4 rounded-xl border border-white/10 text-sm text-slate-300 leading-relaxed overflow-y-auto whitespace-pre-wrap transition-colors group-hover:border-sky-500/30 custom-scrollbar`}
+      className={`flex-1 min-h-[${minHeight}] bg-slate-950/50 p-4 rounded-xl border border-white text-sm text-slate-300 leading-relaxed overflow-y-auto whitespace-pre-wrap transition-colors group-hover:border-sky-500/30 custom-scrollbar`}
     >
       {content || <span className="text-slate-600 italic text-xs lg:text-sm">{placeholder || "Kết quả sẽ hiện ở đây..."}</span>}
     </div>
@@ -103,9 +103,9 @@ const AIToolbox = ({ onShowToast }) => {
   };
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto mt-6 lg:mt-12 bg-slate-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-4 lg:p-8 mb-20 shadow-2xl">
+    <div className="w-full max-w-[1200px] mx-auto mt-6 lg:mt-12 bg-slate-900/40 backdrop-blur-sm border border-white rounded-2xl p-4 lg:p-8 mb-20 shadow-2xl">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6 border-b border-white/10 pb-6 gap-4">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6 border-b border-white pb-6 gap-4">
         <div>
           <h2 className="text-xl lg:text-2xl font-bold flex items-center gap-3 text-white">
             <span className="text-2xl animate-pulse">✨</span> 
@@ -147,7 +147,7 @@ const AIToolbox = ({ onShowToast }) => {
       </div>
 
       {/* --- PHẦN GIAO DIỆN CHAT GEMINI MỚI --- */}
-      <div className="border-t border-white/10 pt-6 mt-6 lg:pt-8 lg:mt-8">
+      <div className="border-t border-white pt-6 mt-6 lg:pt-8 lg:mt-8">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">✍️</div>
           <h3 className="font-bold text-slate-200">Chat với DevHouse AI</h3>
@@ -162,13 +162,13 @@ const AIToolbox = ({ onShowToast }) => {
             {/* Thanh nhập liệu (Style giống Gemini/ChatGPT) */}
             <div className="relative w-full group">
                 <div className="absolute inset-0 bg-gradient-to-r from-sky-500/20 to-purple-500/20 rounded-3xl blur opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
-                <div className="relative flex items-end gap-2 bg-slate-900 border border-white/10 rounded-3xl p-2 pr-4 shadow-lg focus-within:border-sky-500/50 transition-colors">
+                <div className="relative flex items-end gap-2 bg-slate-900 border border-white rounded-3xl p-2 pr-4 shadow-lg focus-within:border-sky-500/50 transition-colors">
                     <textarea 
                         ref={textareaRef}
                         value={customPrompt}
                         onChange={handleInputResize}
                         onKeyDown={handleKeyDown}
-                        placeholder="Nhập yêu cầu tại đây... (Shift+Enter để xuống dòng)"
+                        placeholder="Hỏi mọi thứ tại đây..."
                         className="w-full max-h-[150px] bg-transparent text-slate-200 text-sm p-3 focus:outline-none resize-none overflow-y-auto custom-scrollbar leading-relaxed"
                         style={{ height: '46px' }} // Chiều cao mặc định 1 dòng
                         disabled={loading}
