@@ -12,6 +12,16 @@ export default {
       },
       animation: {
         'spin-slow': 'spin 3s linear infinite',
+      },
+      keyframes: {
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' }, 
+          '50%': { transform: 'translateY(-10px)' },  
+        }
+      },
+      animation: {
+        'spin-slow': 'spin 3s linear infinite',
+        'float-slow': 'float 3s ease-in-out infinite',
       }
     },
   },

@@ -23,7 +23,10 @@ const Poster = () => {
         <div className="absolute inset-0 z-0 bg-[linear-gradient(to_right,rgba(56,189,248,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(56,189,248,0.05)_1px,transparent_1px)] bg-[size:20px_20px] lg:bg-[size:40px_40px]"></div>
 
         {/* Con ngựa (Ẩn trên mobile nhỏ, hiện trên Tablet trở lên) */}
-        <div className="hidden md:block">
+        <div className="block">
+            <span className='inline-flex items-center gap-2 absolute h-10 top-4 right-1 p-4 text-xs lg:text-sm font-bold tracking-[1px]'>DEV HOUSE CHATBOT 
+              <img src="./public/chatbot.gif" alt="chatbot_logo" className='size-10 rounded-[9999px]'/>
+            </span>
             <HorseArt />
         </div>
 
@@ -61,7 +64,7 @@ const Poster = () => {
               />
             </div>
 
-            <div className="mt-8 lg:mt-auto flex items-center space-x-3">
+            <div className="mt-8 lg:mt-3 flex items-center space-x-3">
               <div className="w-10 h-10 bg-sky-500 rounded-lg flex items-center justify-center font-black text-xl text-white shadow-lg shadow-sky-500/50">
                 <span>
                     <img src="./logo.png" alt="logo"/>
