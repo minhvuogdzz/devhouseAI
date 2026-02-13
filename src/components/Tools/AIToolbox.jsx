@@ -140,7 +140,7 @@ const AIToolbox = ({ onShowToast }) => {
       <div className="pt-2">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">💬</div>
-          <h3 className="font-bold text-slate-200">Chat hội thoại (Có ngữ cảnh)</h3>
+          <h3 className="font-bold text-slate-200">DevHouse Chatbot</h3>
         </div>
 
         {/* Khung hiển thị tin nhắn (Chat Window) */}
@@ -180,7 +180,7 @@ const AIToolbox = ({ onShowToast }) => {
                     value={inputMessage}
                     onChange={handleInputResize}
                     onKeyDown={handleKeyDown}
-                    placeholder="Hỏi tiếp câu chuyện... (Ví dụ: Viết lại đoạn trên nhưng hài hước hơn)"
+                    placeholder="Hỏi bất cứ điều gì..."
                     className="w-full max-h-[150px] bg-transparent text-slate-200 text-sm p-3 focus:outline-none resize-none overflow-y-auto custom-scrollbar"
                     style={{ height: '46px' }}
                     disabled={loading}
