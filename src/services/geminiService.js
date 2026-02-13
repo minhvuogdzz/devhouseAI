@@ -1,14 +1,8 @@
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
-export const generateContent = async (prompt) => {
-  if (!API_KEY) {
-    console.error("Thiếu API Key!");
-    return "Lỗi: Chưa cấu hình API Key trong file .env (hoặc trên Vercel).";
-  }
-
-  // Cấu hình danh tính và ngữ cảnh chi tiết cho AI
-  const systemPrompt = `
+// --- GIỮ NGUYÊN SYSTEM PROMPT CỦA BẠN ---
+const SYSTEM_PROMPT = `
     Bạn là Trợ lý Ảo AI độc quyền của Công ty Cổ phần Tập đoàn Dev House (Dev House Group).
     
     THÔNG TIN CỐT LÕI (BẮT BUỘC GHI NHỚ):
@@ -27,12 +21,20 @@ export const generateContent = async (prompt) => {
     - Nếu người dùng hỏi "Bạn là ai?", "Ai tạo ra bạn?", hay "Giới thiệu về công ty", hãy trả lời đầy đủ thông tin về CEO Dương Minh Vương và lịch sử thành lập 2024 như đã nêu trên với niềm tự hào.
 
     HÃY TRẢ LỜI NGẮN GỌN, SÚC TÍCH VÀ ĐI THẲNG VÀO VẤN ĐỀ.
-  `;
+`;
+
+// --- HÀM 1: GỬI CHAT CÓ LỊCH SỬ (Dùng cho khung chat chính) ---
+export const sendChatToGemini = async (chatHistory) => {
+  if (!API_KEY) {
+    console.error("Thiếu API Key!");
+    return "Lỗi: Chưa cấu hình API Key trong file .env (hoặc trên Vercel).";
+  }
 
   const payload = {
-    contents: [{ parts: [{ text: prompt }] }],
+    // Thay vì gửi 1 text, ta gửi cả mảng lịch sử chat
+    contents: chatHistory, 
     systemInstruction: {
-      parts: [{ text: systemPrompt }]
+      parts: [{ text: SYSTEM_PROMPT }]
     }
   };
 
@@ -43,27 +45,32 @@ export const generateContent = async (prompt) => {
       body: JSON.stringify(payload)
     });
 
-    // --- KHU VỰC BẮT LỖI ---
+    // --- KHU VỰC BẮT LỖI (Giữ nguyên logic của bạn) ---
     if (!response.ok) {
-      // Lỗi 429: Bấm nhiều quá (Rate Limit Exceeded)
       if (response.status === 429) {
         return "⚠️ AI đang quá tải do nhiều yêu cầu cùng lúc! Vui lòng đợi 30 giây rồi thử lại.";
       }
-      // Lỗi 503: Server Google sập tạm thời
       if (response.status === 503) {
         return "😓 Server Google đang bảo trì hoặc quá tải. Hãy thử lại sau vài phút.";
       }
-      // Các lỗi khác (400, 401, 500...)
       console.error(`API Error Status: ${response.status}`);
       throw new Error(`API Error: ${response.status} - ${response.statusText}`);
     }
-    // ---------------------------
+    // ------------------------------------------------
 
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Xin lỗi, hiện tại tôi chưa thể phản hồi. Vui lòng thử lại sau.";
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Xin lỗi, hiện tại tôi chưa thể phản hồi.";
 
   } catch (error) {
     console.error("Gemini Service Error:", error);
     return "Hệ thống đang bận hoặc gặp sự cố kết nối. Mong Quý khách thông cảm thử lại sau giây lát.";
   }
+};
+
+// --- HÀM 2: TẠO NỘI DUNG ĐƠN LẺ (Dùng cho các nút bấm nhanh Greeting/Social) ---
+// Hàm này wrapper lại hàm trên để code cũ không bị lỗi
+export const generateContent = async (prompt) => {
+  // Chuyển prompt đơn thành format lịch sử (1 tin nhắn user)
+  const singleMessageHistory = [{ role: 'user', parts: [{ text: prompt }] }];
+  return sendChatToGemini(singleMessageHistory);
 };
