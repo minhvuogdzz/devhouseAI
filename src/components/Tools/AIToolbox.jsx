@@ -14,7 +14,7 @@ const ActionButton = ({ onClick, label, disabled }) => (
 const ResultBox = ({ content, onCopy, placeholder, minHeight = "120px" }) => (
   <div className="space-y-2 group h-full flex flex-col">
     <div 
-      className={`flex-1 min-h-[${minHeight}] bg-slate-950/50 p-4 rounded-xl border border-white text-sm text-slate-300 leading-relaxed overflow-y-auto whitespace-pre-wrap transition-colors group-hover:border-sky-500/30 custom-scrollbar`}
+      className={`flex-1 min-h-[${minHeight}] bg-slate-950/50 p-4 rounded-xl border border-white text-sm text-slate-300 leading-relaxed overflow-y-auto whitespace-pre-wrap transition-colors group-hover:border-sky-500 custom-scrollbar`}
     >
       {content || <span className="text-slate-600 italic text-xs lg:text-sm">{placeholder || "Kết quả sẽ hiện ở đây..."}</span>}
     </div>
