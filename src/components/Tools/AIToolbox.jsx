@@ -25,9 +25,8 @@ const AIToolbox = ({ onShowToast }) => {
   
   // --- STATE MỚI CHO CHAT HISTORY ---
   const [inputMessage, setInputMessage] = useState("");
-  const [messages, setMessages] = useState([
-    { role: 'model', text: 'Chào bạn, tôi là AI của Dev House. Tôi có thể giúp gì cho bạn?' }
-  ]);
+  const initialMessage = { role: 'model', text: 'Chào bạn, tôi là AI của Dev House. Tôi có thể giúp gì cho bạn?' };
+  const [messages, setMessages] = useState([initialMessage]);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -52,6 +51,15 @@ const AIToolbox = ({ onShowToast }) => {
     finally { setLoading(false); }
   };
 
+  // --- HÀM RESET CHAT MỚI ---
+  const handleResetChat = () => {
+    if (window.confirm("Bạn có chắc muốn xóa lịch sử trò chuyện và bắt đầu lại không?")) {
+        setMessages([initialMessage]);
+        setInputMessage("");
+        if (textareaRef.current) textareaRef.current.style.height = '46px';
+    }
+  };
+
   // --- XỬ LÝ CHAT THÔNG MINH (CÓ NHỚ) ---
   const handleChatSubmit = async () => {
     if (!inputMessage.trim() || loading) return;
@@ -67,9 +75,8 @@ const AIToolbox = ({ onShowToast }) => {
 
     try {
       // 2. Chuẩn bị dữ liệu gửi cho Google (Format đúng chuẩn API yêu cầu)
-      // Map từ state của mình sang format của Google: { role: 'user'/'model', parts: [{ text: ... }] }
       const apiHistory = newMessages.map(msg => ({
-        role: msg.role === 'model' ? 'model' : 'user', // API Google dùng 'model', mình dùng 'ai' hay 'model' cũng được
+        role: msg.role === 'model' ? 'model' : 'user', 
         parts: [{ text: msg.text }]
       }));
 
@@ -138,9 +145,21 @@ const AIToolbox = ({ onShowToast }) => {
 
       {/* --- PHẦN CHAT HISTORY MỚI --- */}
       <div className="pt-2">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">💬</div>
-          <h3 className="font-bold text-slate-200">DevHouse Chatbot</h3>
+        <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">💬</div>
+                <h3 className="font-bold text-slate-200">Devhouse Chatbot</h3>
+            </div>
+            
+            {/* NÚT RESET CHAT MỚI */}
+            <button 
+                onClick={handleResetChat}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-400 bg-slate-800 hover:bg-slate-700 hover:text-white rounded-lg transition-all border border-slate-700"
+                title="Xóa lịch sử và bắt đầu lại"
+            >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Chat mới
+            </button>
         </div>
 
         {/* Khung hiển thị tin nhắn (Chat Window) */}
