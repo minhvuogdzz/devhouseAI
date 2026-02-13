@@ -24,9 +24,6 @@ const Poster = () => {
 
         {/* Con ngựa (Ẩn trên mobile nhỏ, hiện trên Tablet trở lên) */}
         <div className="block">
-            <span className='inline-flex items-center gap-2 absolute h-10 top-4 right-1 p-4 text-xs lg:text-sm font-bold tracking-[1px]'>DEV HOUSE CHATBOT 
-              <img src="/public/chatbot.png" alt="chatbot_logo" className='size-10 rounded-[9999px]'/>
-            </span>
             <HorseArt />
         </div>
 
