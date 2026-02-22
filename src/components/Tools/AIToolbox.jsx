@@ -186,7 +186,7 @@ const AIToolbox = ({ onShowToast }) => {
                     value={inputMessage}
                     onChange={handleInputResize}
                     onKeyDown={handleKeyDown}
-                    placeholder="Hỏi bất cứ điều gì (Viết hàm Python, Giải phương trình bậc 2...)"
+                    placeholder="Hỏi bất cứ điều gì..."
                     className="w-full max-h-[150px] bg-transparent text-slate-200 text-sm p-3 focus:outline-none resize-none overflow-y-auto custom-scrollbar"
                     style={{ height: '46px' }}
                     disabled={loading}
