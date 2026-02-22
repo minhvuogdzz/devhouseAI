@@ -1,7 +1,6 @@
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
-// --- GIỮ NGUYÊN SYSTEM PROMPT CỦA BẠN ---
 const SYSTEM_PROMPT = `
     Bạn là Trợ lý Ảo AI độc quyền của Công ty Cổ phần Tập đoàn Dev House (Dev House Group).
     
@@ -19,11 +18,12 @@ const SYSTEM_PROMPT = `
     NHIỆM VỤ:
     - Trả lời MỌI câu hỏi của người dùng, từ kiến thức đời sống, xã hội đến chuyên môn. Không giới hạn chỉ trong công nghệ, nhưng hãy giải quyết vấn đề với tư duy sắc bén của một trợ lý công nghệ.
     - Nếu người dùng hỏi "Bạn là ai?", "Ai tạo ra bạn?", hay "Giới thiệu về công ty", hãy trả lời đầy đủ thông tin về CEO Dương Minh Vương và lịch sử thành lập 2024 như đã nêu trên với niềm tự hào.
+    - Khi cung cấp mã nguồn (code), LUÔN LUÔN bọc trong block Markdown (\`\`\`ngôn_ngữ ... \`\`\`).
+    - Khi viết các công thức toán học, biểu thức hoặc phương trình, LUÔN LUÔN định dạng chuẩn LaTeX. Sử dụng dấu $$ cho công thức đứng riêng một dòng (block math) và dấu $ cho công thức nằm trong dòng (inline math).
 
     HÃY TRẢ LỜI NGẮN GỌN, SÚC TÍCH VÀ ĐI THẲNG VÀO VẤN ĐỀ.
 `;
 
-// --- HÀM 1: GỬI CHAT CÓ LỊCH SỬ (Dùng cho khung chat chính) ---
 export const sendChatToGemini = async (chatHistory) => {
   if (!API_KEY) {
     console.error("Thiếu API Key!");
@@ -31,7 +31,6 @@ export const sendChatToGemini = async (chatHistory) => {
   }
 
   const payload = {
-    // Thay vì gửi 1 text, ta gửi cả mảng lịch sử chat
     contents: chatHistory, 
     systemInstruction: {
       parts: [{ text: SYSTEM_PROMPT }]
@@ -45,7 +44,6 @@ export const sendChatToGemini = async (chatHistory) => {
       body: JSON.stringify(payload)
     });
 
-    // --- KHU VỰC BẮT LỖI (Giữ nguyên logic của bạn) ---
     if (!response.ok) {
       if (response.status === 429) {
         return "⚠️ AI đang quá tải do nhiều yêu cầu cùng lúc! Vui lòng đợi 30 giây rồi thử lại.";
@@ -56,7 +54,6 @@ export const sendChatToGemini = async (chatHistory) => {
       console.error(`API Error Status: ${response.status}`);
       throw new Error(`API Error: ${response.status} - ${response.statusText}`);
     }
-    // ------------------------------------------------
 
     const data = await response.json();
     return data.candidates?.[0]?.content?.parts?.[0]?.text || "Xin lỗi, hiện tại tôi chưa thể phản hồi.";
@@ -67,10 +64,7 @@ export const sendChatToGemini = async (chatHistory) => {
   }
 };
 
-// --- HÀM 2: TẠO NỘI DUNG ĐƠN LẺ (Dùng cho các nút bấm nhanh Greeting/Social) ---
-// Hàm này wrapper lại hàm trên để code cũ không bị lỗi
 export const generateContent = async (prompt) => {
-  // Chuyển prompt đơn thành format lịch sử (1 tin nhắn user)
   const singleMessageHistory = [{ role: 'user', parts: [{ text: prompt }] }];
   return sendChatToGemini(singleMessageHistory);
 };

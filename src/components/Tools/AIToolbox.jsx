@@ -1,57 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
-// Import cả 2 hàm (lưu ý hàm generateContent vẫn dùng cho các nút bấm bên trên)
-import { generateContent, sendChatToGemini } from '../../services/geminiService';
-
-// ... (Giữ nguyên ActionButton và ResultBox cũ cho phần trên) ...
-const ActionButton = ({ onClick, label, disabled }) => (
-  <button onClick={onClick} disabled={disabled} className="px-3 py-2 lg:px-4 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-lg text-xs transition-all text-white disabled:opacity-50 font-medium hover:scale-105 active:scale-95 whitespace-nowrap flex-grow lg:flex-grow-0">{label}</button>
-);
-
-const ResultBox = ({ content, onCopy, placeholder }) => (
-  <div className="space-y-2 group h-full flex flex-col">
-    <div className="flex-1 min-h-[120px] bg-slate-950/50 p-4 rounded-xl border border-white/10 text-sm text-slate-300 leading-relaxed overflow-y-auto whitespace-pre-wrap transition-colors group-hover:border-sky-500/30">
-      {content || <span className="text-slate-600 italic text-xs lg:text-sm">{placeholder || "Kết quả sẽ hiện ở đây..."}</span>}
-    </div>
-    <button onClick={() => onCopy(content)} className="text-xs text-sky-400 font-semibold hover:text-sky-300 cursor-pointer flex items-center gap-1 self-end p-2 opacity-0 group-hover:opacity-100 focus:opacity-100">
-      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg> Sao chép
-    </button>
-  </div>
-);
+import { sendChatToGemini } from '../../services/geminiService';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import 'katex/dist/katex.min.css'; // File CSS bắt buộc để toán học không bị vỡ font
 
 const AIToolbox = ({ onShowToast }) => {
   const [loading, setLoading] = useState(false);
-  const [greetingResult, setGreetingResult] = useState("");
-  const [socialResult, setSocialResult] = useState("");
-  
-  // --- STATE MỚI CHO CHAT HISTORY ---
   const [inputMessage, setInputMessage] = useState("");
-  const initialMessage = { role: 'model', text: 'Chào bạn, tôi là AI của Dev House. Tôi có thể giúp gì cho bạn?' };
+  const initialMessage = { role: 'model', text: 'Chào bạn, tôi là AI của Dev House. Tôi có thể giúp gì cho bạn? Bạn có thể yêu cầu tôi viết code hoặc giải toán!' };
   const [messages, setMessages] = useState([initialMessage]);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // Tự động cuộn xuống cuối khi có tin nhắn mới
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-  useEffect(() => { scrollToBottom() }, [messages]);
-
-  // Xử lý các nút bấm nhanh (Dùng hàm cũ generateContent - Không lưu lịch sử chat này)
-  const handlePresetClick = async (type, detail, setOutput) => {
-    setLoading(true);
-    setOutput("Đang viết...");
-    const prompt = type === 'greeting' 
-        ? `Viết lời chúc Tết 2026 cho ${detail}. Ngắn gọn, lịch sự.`
-        : `Viết status ${detail} thông báo nghỉ Tết Dev House.`;
-    
-    try {
-      const text = await generateContent(prompt);
-      setOutput(text);
-    } catch (e) { setOutput("Lỗi kết nối."); }
-    finally { setLoading(false); }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
 
-  // --- HÀM RESET CHAT MỚI ---
+  useEffect(() => { 
+    if (messages.length > 1) {
+      scrollToBottom();
+    }
+  }, [messages]);
+
   const handleResetChat = () => {
     if (window.confirm("Bạn có chắc muốn xóa lịch sử trò chuyện và bắt đầu lại không?")) {
         setMessages([initialMessage]);
@@ -60,30 +33,24 @@ const AIToolbox = ({ onShowToast }) => {
     }
   };
 
-  // --- XỬ LÝ CHAT THÔNG MINH (CÓ NHỚ) ---
   const handleChatSubmit = async () => {
     if (!inputMessage.trim() || loading) return;
 
     const userText = inputMessage;
-    setInputMessage(""); // Xóa ô nhập ngay lập tức
+    setInputMessage("");
     if (textareaRef.current) textareaRef.current.style.height = '46px';
 
-    // 1. Cập nhật giao diện: Thêm tin nhắn của User vào list ngay
     const newMessages = [...messages, { role: 'user', text: userText }];
     setMessages(newMessages);
     setLoading(true);
 
     try {
-      // 2. Chuẩn bị dữ liệu gửi cho Google (Format đúng chuẩn API yêu cầu)
       const apiHistory = newMessages.map(msg => ({
         role: msg.role === 'model' ? 'model' : 'user', 
         parts: [{ text: msg.text }]
       }));
 
-      // 3. Gọi API với toàn bộ lịch sử
       const aiResponseText = await sendChatToGemini(apiHistory);
-
-      // 4. Cập nhật giao diện: Thêm tin nhắn của AI vào list
       setMessages(prev => [...prev, { role: 'model', text: aiResponseText }]);
 
     } catch (error) {
@@ -114,7 +81,6 @@ const AIToolbox = ({ onShowToast }) => {
 
   return (
     <div className="w-full max-w-[1200px] mx-auto mt-6 lg:mt-12 bg-slate-900/40 backdrop-blur-sm border border-white/10 rounded-2xl p-4 lg:p-8 mb-20 shadow-2xl">
-      {/* Header */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6 border-b border-white/10 pb-6 gap-4">
         <div>
           <h2 className="text-xl lg:text-2xl font-bold flex items-center gap-3 text-white">
@@ -123,27 +89,6 @@ const AIToolbox = ({ onShowToast }) => {
         </div>
       </div>
 
-      {/* Phần Tool nhanh (Greeting/Social) - Giữ nguyên */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 mb-10 border-b border-white/10 pb-10">
-        <div className="space-y-4 flex flex-col">
-          <h3 className="font-bold text-slate-200 flex gap-2">💌 Lời chúc nhanh</h3>
-          <div className="flex flex-wrap gap-2">
-            <ActionButton disabled={loading} label="Khách hàng VIP" onClick={() => handlePresetClick('greeting', 'Khách VIP', setGreetingResult)} />
-            <ActionButton disabled={loading} label="Nhân viên" onClick={() => handlePresetClick('greeting', 'Nhân viên', setGreetingResult)} />
-          </div>
-          <ResultBox content={greetingResult} onCopy={handleCopy} placeholder="Lời chúc sẽ hiện ở đây..." />
-        </div>
-        <div className="space-y-4 flex flex-col">
-          <h3 className="font-bold text-slate-200 flex gap-2">📣 Post Social</h3>
-           <div className="flex flex-wrap gap-2">
-            <ActionButton disabled={loading} label="Facebook" onClick={() => handlePresetClick('social', 'Facebook', setSocialResult)} />
-            <ActionButton disabled={loading} label="Email" onClick={() => handlePresetClick('social', 'Email', setSocialResult)} />
-          </div>
-          <ResultBox content={socialResult} onCopy={handleCopy} placeholder="Nội dung post sẽ hiện ở đây..." />
-        </div>
-      </div>
-
-      {/* --- PHẦN CHAT HISTORY MỚI --- */}
       <div className="pt-2">
         <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -151,7 +96,6 @@ const AIToolbox = ({ onShowToast }) => {
                 <h3 className="font-bold text-slate-200">Devhouse Chatbot</h3>
             </div>
             
-            {/* NÚT RESET CHAT MỚI */}
             <button 
                 onClick={handleResetChat}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-400 bg-slate-800 hover:bg-slate-700 hover:text-white rounded-lg transition-all border border-slate-700"
@@ -162,36 +106,79 @@ const AIToolbox = ({ onShowToast }) => {
             </button>
         </div>
 
-        {/* Khung hiển thị tin nhắn (Chat Window) */}
-        <div className="bg-slate-950/50 rounded-2xl border border-white/10 p-4 h-[400px] overflow-y-auto custom-scrollbar mb-4 flex flex-col gap-4">
+        <div className="bg-slate-950/50 rounded-2xl border border-white/10 p-4 h-[500px] overflow-y-auto custom-scrollbar mb-4 flex flex-col gap-4">
             {messages.map((msg, index) => (
                 <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                    <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${
                         msg.role === 'user' 
-                        ? 'bg-sky-600 text-white rounded-br-none' 
+                        ? 'bg-sky-600 text-white rounded-br-none whitespace-pre-wrap' 
                         : 'bg-slate-800 text-slate-200 rounded-bl-none border border-white/10'
                     }`}>
-                        {msg.text}
-                        {/* Nút copy nhỏ cho mỗi tin nhắn AI */}
-                        {msg.role === 'model' && (
-                            <button onClick={() => handleCopy(msg.text)} className="block mt-2 text-[10px] text-slate-400 hover:text-white underline opacity-50 hover:opacity-100 transition-opacity">Copy</button>
+                        
+                        {/* TRÌNH RENDER MARKDOWN & LATEX TÍCH HỢP */}
+                        {msg.role === 'model' ? (
+                            <ReactMarkdown
+                                remarkPlugins={[remarkMath]}
+                                rehypePlugins={[rehypeKatex]}
+                                components={{
+                                    code({node, inline, className, children, ...props}) {
+                                        const match = /language-(\w+)/.exec(className || '');
+                                        const lang = match ? match[1] : '';
+                                        const isHtmlCss = lang === 'html' || lang === 'css';
+                                        
+                                        return !inline && match ? (
+                                            <div className="relative rounded-lg overflow-hidden my-4 border border-white/20 shadow-lg">
+                                                <div className={`px-4 py-2 flex justify-between items-center text-xs font-mono border-b ${isHtmlCss ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-[#1e1e1e] text-slate-400 border-white/10'}`}>
+                                                    <span>{lang}</span>
+                                                    <button onClick={() => handleCopy(String(children))} className="hover:text-sky-400 transition-colors">
+                                                        Copy code
+                                                    </button>
+                                                </div>
+                                                <SyntaxHighlighter
+                                                    {...props}
+                                                    children={String(children).replace(/\n$/, '')}
+                                                    style={isHtmlCss ? oneLight : vscDarkPlus}
+                                                    language={lang}
+                                                    PreTag="div"
+                                                    customStyle={{ margin: 0, padding: '1rem', background: isHtmlCss ? '#f8fafc' : '#1e1e1e' }}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <code {...props} className="bg-slate-900/50 text-sky-300 px-1.5 py-0.5 rounded text-[13px] font-mono border border-white/5">
+                                                {children}
+                                            </code>
+                                        )
+                                    },
+                                    p: ({node, ...props}) => <p className="mb-3 last:mb-0" {...props} />,
+                                    ul: ({node, ...props}) => <ul className="list-disc ml-5 mb-3 space-y-1" {...props} />,
+                                    ol: ({node, ...props}) => <ol className="list-decimal ml-5 mb-3 space-y-1" {...props} />,
+                                    strong: ({node, ...props}) => <strong className="font-bold text-sky-300" {...props} />,
+                                    h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-3 mt-4 text-white" {...props} />,
+                                    h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-2 mt-4 text-white" {...props} />,
+                                    h3: ({node, ...props}) => <h3 className="text-base font-bold mb-2 mt-3 text-white" {...props} />,
+                                }}
+                            >
+                                {msg.text}
+                            </ReactMarkdown>
+                        ) : (
+                            msg.text
                         )}
+
                     </div>
                 </div>
             ))}
             {loading && (
                 <div className="flex justify-start">
-                    <div className="bg-slate-800 p-3 rounded-2xl rounded-bl-none border border-white/10 flex items-center gap-2">
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-100"></div>
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-200"></div>
+                    <div className="bg-slate-800 p-4 rounded-2xl rounded-bl-none border border-white/10 flex items-center gap-2">
+                        <div className="w-2 h-2 bg-sky-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-sky-400 rounded-full animate-bounce delay-100"></div>
+                        <div className="w-2 h-2 bg-sky-400 rounded-full animate-bounce delay-200"></div>
                     </div>
                 </div>
             )}
             <div ref={messagesEndRef} />
         </div>
 
-        {/* Thanh nhập liệu (Input Bar) */}
         <div className="relative w-full group">
             <div className="relative flex items-end gap-2 bg-slate-900 border border-white/10 rounded-3xl p-2 pr-4 shadow-lg focus-within:border-sky-500/50 transition-colors">
                 <textarea 
@@ -199,7 +186,7 @@ const AIToolbox = ({ onShowToast }) => {
                     value={inputMessage}
                     onChange={handleInputResize}
                     onKeyDown={handleKeyDown}
-                    placeholder="Hỏi bất cứ điều gì..."
+                    placeholder="Hỏi bất cứ điều gì (Viết hàm Python, Giải phương trình bậc 2...)"
                     className="w-full max-h-[150px] bg-transparent text-slate-200 text-sm p-3 focus:outline-none resize-none overflow-y-auto custom-scrollbar"
                     style={{ height: '46px' }}
                     disabled={loading}
