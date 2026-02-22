@@ -17,7 +17,7 @@ const AIToolbox = ({ onShowToast }) => {
   const imageInputRef = useRef(null);
   const docInputRef = useRef(null);
 
-  const initialMessage = { role: 'model', text: 'Chào bạn, tôi là AI của Dev House. Bạn có thể kéo thả ảnh/tài liệu vào đây, hoặc nhấn Ctrl+V để dán ảnh trực tiếp nhé!' };
+  const initialMessage = { role: 'model', text: 'Chào bạn, tôi là AI của Dev House. Tôi có thể giúp gì cho bạn?' };
   const [messages, setMessages] = useState([initialMessage]);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -366,7 +366,7 @@ const AIToolbox = ({ onShowToast }) => {
                         onChange={handleInputResize}
                         onKeyDown={handleKeyDown}
                         onPaste={handlePaste} // Lắng nghe sự kiện Dán
-                        placeholder="Nhắn tin, dán ảnh (Ctrl+V) hoặc kéo thả file..."
+                        placeholder="Hỏi bất cứ điều gì..."
                         className="w-full max-h-[150px] bg-transparent text-slate-200 text-sm p-3 focus:outline-none resize-none overflow-y-auto custom-scrollbar"
                         style={{ height: '46px' }}
                         disabled={loading}
