@@ -11,11 +11,13 @@ const AIToolbox = ({ onShowToast }) => {
   const [loading, setLoading] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
   
-  // STATE MỚI: Xử lý file đính kèm
+  // STATE MỚI: Xử lý Kéo thả và File
   const [attachment, setAttachment] = useState(null);
-  const fileInputRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false); // Trạng thái kéo thả
+  const imageInputRef = useRef(null);
+  const docInputRef = useRef(null);
 
-  const initialMessage = { role: 'model', text: 'Chào bạn, tôi là AI của Dev House. Tôi có thể giúp gì cho bạn ?' };
+  const initialMessage = { role: 'model', text: 'Chào bạn, tôi là AI của Dev House. Bạn có thể kéo thả ảnh/tài liệu vào đây, hoặc nhấn Ctrl+V để dán ảnh trực tiếp nhé!' };
   const [messages, setMessages] = useState([initialMessage]);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -39,28 +41,75 @@ const AIToolbox = ({ onShowToast }) => {
     }
   };
 
-  // --- HÀM MỚI: Xử lý chọn ảnh ---
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
+  // --- HÀM XỬ LÝ FILE DÙNG CHUNG (Cho cả Chọn, Kéo thả, Dán) ---
+  const processFile = (file) => {
     if (!file) return;
 
-    // Giới hạn 5MB để tránh lag trình duyệt và vượt API limit
+    // Giới hạn 5MB
     if (file.size > 5 * 1024 * 1024) {
-      alert("Vui lòng chọn ảnh dưới 5MB để đảm bảo tốc độ nhé!");
+      alert("Vui lòng chọn file dưới 5MB để đảm bảo tốc độ nhé!");
       return;
     }
 
+    const isImage = file.type.startsWith('image/');
     const reader = new FileReader();
+
     reader.onloadend = () => {
       setAttachment({
         file: file,
-        base64: reader.result, // Chuỗi Base64 để gửi cho Google
+        name: file.name,
+        base64: reader.result,
         mimeType: file.type,
-        previewUrl: URL.createObjectURL(file) // Link ảo để hiện UI cho nhanh
+        isImage: isImage,
+        previewUrl: isImage ? URL.createObjectURL(file) : null
       });
     };
     reader.readAsDataURL(file);
-    e.target.value = ''; // Reset input để có thể chọn lại cùng 1 file
+  };
+
+  // Các handler khi bấm nút chọn file
+  const handleImageChange = (e) => {
+    processFile(e.target.files[0]);
+    e.target.value = ''; 
+  };
+
+  const handleDocChange = (e) => {
+    processFile(e.target.files[0]);
+    e.target.value = ''; 
+  };
+
+  // --- XỬ LÝ DÁN (PASTE) ---
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1 || items[i].type.indexOf('pdf') !== -1) {
+        const file = items[i].getAsFile();
+        processFile(file);
+        e.preventDefault(); // Ngăn hành vi dán text linh tinh nếu paste ảnh
+        break; // Chỉ lấy file đầu tiên
+      }
+    }
+  };
+
+  // --- XỬ LÝ KÉO THẢ (DRAG & DROP) ---
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFile(e.dataTransfer.files[0]);
+    }
   };
 
   const handleRemoveAttachment = () => {
@@ -68,29 +117,24 @@ const AIToolbox = ({ onShowToast }) => {
   };
 
   const handleChatSubmit = async () => {
-    // Chỉ gửi khi có chữ HOẶC có ảnh
     if ((!inputMessage.trim() && !attachment) || loading) return;
 
-    const userText = inputMessage.trim() || "Hãy phân tích hình ảnh này cho tôi.";
-    const currentAttachment = attachment; // Lưu tạm để UI không bị mất ảnh khi đang load
+    const userText = inputMessage.trim() || (attachment?.isImage ? "Hãy phân tích hình ảnh này." : "Hãy phân tích tài liệu này.");
+    const currentAttachment = attachment; 
 
     setInputMessage("");
-    setAttachment(null); // Xóa UI đính kèm ngay lập tức
+    setAttachment(null); 
     if (textareaRef.current) textareaRef.current.style.height = '46px';
 
-    // Đẩy tin nhắn vào UI
     const newMessages = [...messages, { role: 'user', text: userText, attachment: currentAttachment }];
     setMessages(newMessages);
     setLoading(true);
 
     try {
-      // Build lịch sử gửi API có kẹp Base64 ảnh
       const apiHistory = newMessages.map(msg => {
         const parts = [];
-        
-        // Nếu tin nhắn có ảnh, nhét nó vào format inlineData của Gemini
         if (msg.attachment && msg.attachment.base64) {
-          const base64Data = msg.attachment.base64.split(',')[1]; // Cắt bỏ đoạn 'data:image/png;base64,'
+          const base64Data = msg.attachment.base64.split(',')[1];
           parts.push({
             inlineData: {
               data: base64Data,
@@ -98,10 +142,7 @@ const AIToolbox = ({ onShowToast }) => {
             }
           });
         }
-        
-        // Luôn luôn push text vào
         parts.push({ text: msg.text });
-
         return {
           role: msg.role === 'model' ? 'model' : 'user', 
           parts: parts
@@ -172,14 +213,23 @@ const AIToolbox = ({ onShowToast }) => {
                         : 'bg-slate-800 text-slate-200 rounded-bl-none border border-white/10'
                     }`}>
                         
-                        {/* HIỂN THỊ ẢNH ĐÍNH KÈM TRONG LỊCH SỬ CHAT */}
+                        {/* HIỂN THỊ FILE TRONG LỊCH SỬ CHAT */}
                         {msg.attachment && (
-                            <img 
-                              src={msg.attachment.previewUrl || msg.attachment.base64} 
-                              alt="Đính kèm" 
-                              className="max-w-full rounded-xl mb-3 border border-white/20 shadow-lg object-cover" 
-                              style={{ maxHeight: '250px' }} 
-                            />
+                            <div className="mb-3">
+                                {msg.attachment.isImage ? (
+                                    <img 
+                                        src={msg.attachment.previewUrl || msg.attachment.base64} 
+                                        alt="Đính kèm" 
+                                        className="max-w-full rounded-xl border border-white/20 shadow-lg object-cover" 
+                                        style={{ maxHeight: '250px' }} 
+                                    />
+                                ) : (
+                                    <div className="flex items-center gap-3 bg-white/10 p-3 rounded-lg border border-white/20">
+                                        <svg className="w-6 h-6 text-red-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"></path></svg>
+                                        <span className="text-sm font-medium">{msg.attachment.name}</span>
+                                    </div>
+                                )}
+                            </div>
                         )}
 
                         {/* TRÌNH RENDER MARKDOWN & LATEX */}
@@ -246,26 +296,37 @@ const AIToolbox = ({ onShowToast }) => {
             <div ref={messagesEndRef} />
         </div>
 
-        <div className="relative w-full group">
-            {/* THÊM MỚI: Input ẩn để chọn file */}
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileChange} 
-              accept="image/png, image/jpeg, image/webp, image/heic" 
-              className="hidden" 
-            />
+        {/* KHUNG NHẬP LIỆU (Bao gồm vùng Drop zone) */}
+        <div 
+            className={`relative w-full group rounded-3xl transition-all duration-300 ${isDragging ? 'ring-2 ring-sky-500 shadow-[0_0_20px_rgba(14,165,233,0.5)]' : ''}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+        >
+            {/* 2 Input ẩn để chọn file */}
+            <input type="file" ref={imageInputRef} onChange={handleImageChange} accept="image/*" className="hidden" />
+            <input type="file" ref={docInputRef} onChange={handleDocChange} accept=".pdf,.txt,.csv,.json" className="hidden" />
+
+            {/* Thông báo Kéo thả mờ mờ khi đang kéo file */}
+            {isDragging && (
+                <div className="absolute inset-0 z-50 bg-slate-900/90 rounded-3xl flex items-center justify-center border-2 border-dashed border-sky-400">
+                    <p className="text-sky-400 font-bold text-lg animate-pulse">Thả file vào đây...</p>
+                </div>
+            )}
 
             <div className="relative flex flex-col bg-slate-900 border border-white/10 rounded-3xl p-2 shadow-lg focus-within:border-sky-500/50 transition-colors">
                 
-                {/* HIỂN THỊ PREVIEW ẢNH NẰM TRONG KHUNG NHẬP CHỮ */}
+                {/* HIỂN THỊ PREVIEW KHI ĐÃ ĐÍNH KÈM */}
                 {attachment && (
-                  <div className="relative w-20 h-20 ml-3 mt-2 mb-2 group/preview">
-                    <img 
-                      src={attachment.previewUrl} 
-                      alt="Preview" 
-                      className="w-full h-full object-cover rounded-xl border border-sky-500/50 shadow-md"
-                    />
+                  <div className="relative inline-flex items-center gap-3 bg-slate-800 p-2 pr-8 rounded-xl border border-sky-500/50 shadow-md ml-3 mt-2 mb-2 max-w-fit">
+                    {attachment.isImage ? (
+                        <img src={attachment.previewUrl} alt="Preview" className="w-12 h-12 object-cover rounded-md border border-white/10" />
+                    ) : (
+                        <div className="w-12 h-12 flex items-center justify-center bg-slate-700 rounded-md text-red-400">
+                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"></path></svg>
+                        </div>
+                    )}
+                    <span className="text-xs text-slate-300 font-medium truncate max-w-[150px]">{attachment.name || "Tệp đính kèm"}</span>
                     <button 
                       onClick={handleRemoveAttachment}
                       className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow-lg transition-transform hover:scale-110"
@@ -276,22 +337,36 @@ const AIToolbox = ({ onShowToast }) => {
                 )}
 
                 <div className="flex items-end gap-2 w-full pr-2">
-                    {/* NÚT ĐÍNH KÈM (Kẹp ghim) */}
-                    <button 
-                        onClick={() => fileInputRef.current.click()}
-                        disabled={loading}
-                        className="mb-1 p-2.5 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded-full transition-colors flex-shrink-0"
-                        title="Đính kèm hình ảnh"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
-                    </button>
+                    {/* KHU VỰC CÁC NÚT ĐÍNH KÈM */}
+                    <div className="flex mb-1 ml-1">
+                        {/* Nút đính kèm Hình Ảnh */}
+                        <button 
+                            onClick={() => imageInputRef.current.click()}
+                            disabled={loading}
+                            className="p-2.5 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded-full transition-colors flex-shrink-0"
+                            title="Tải lên hình ảnh"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        </button>
+
+                        {/* Nút đính kèm File / Tài liệu */}
+                        <button 
+                            onClick={() => docInputRef.current.click()}
+                            disabled={loading}
+                            className="p-2.5 text-slate-400 hover:text-purple-400 hover:bg-slate-800 rounded-full transition-colors flex-shrink-0"
+                            title="Tải lên tài liệu (PDF, TXT...)"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                        </button>
+                    </div>
 
                     <textarea 
                         ref={textareaRef}
                         value={inputMessage}
                         onChange={handleInputResize}
                         onKeyDown={handleKeyDown}
-                        placeholder={attachment ? "Nhập yêu cầu cho bức ảnh này..." : "Hỏi bất cứ điều gì (Gửi ảnh, viết code, giải toán...)"}
+                        onPaste={handlePaste} // Lắng nghe sự kiện Dán
+                        placeholder="Nhắn tin, dán ảnh (Ctrl+V) hoặc kéo thả file..."
                         className="w-full max-h-[150px] bg-transparent text-slate-200 text-sm p-3 focus:outline-none resize-none overflow-y-auto custom-scrollbar"
                         style={{ height: '46px' }}
                         disabled={loading}
