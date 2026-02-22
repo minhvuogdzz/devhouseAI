@@ -336,7 +336,7 @@ const AIToolbox = ({ onShowToast }) => {
                   </div>
                 )}
 
-                <div className="flex items-end gap-2 w-full pr-2">
+                <div className="flex items-center gap-2 w-full pr-2">
                     {/* KHU VỰC CÁC NÚT ĐÍNH KÈM */}
                     <div className="flex mb-1 ml-1">
                         {/* Nút đính kèm Hình Ảnh */}
