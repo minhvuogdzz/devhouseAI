@@ -53,7 +53,7 @@ const Poster = () => {
           {/* Cột Trái: Thông báo & Dịch vụ */}
           <div className="flex-1 flex flex-col justify-center">
             <div className="inline-flex self-start bg-sky-400/10 text-sky-300 px-3 py-1 lg:px-4 lg:py-1.5 rounded-full font-bold text-xs lg:text-sm tracking-widest mb-4 border border-sky-400/30 uppercase">
-              Công Ty Cổ Phần Tập Đoàn Dev House
+              Công Ty Cổ Phần Tập Đoàn Dev House Group
             </div>
             
             <h1 className="text-4xl lg:text-6xl font-black mb-2 text-white drop-shadow-[0_0_30px_rgba(56,189,248,0.6)] tracking-tighter leading-tight">
