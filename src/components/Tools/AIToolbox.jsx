@@ -138,6 +138,7 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
     }
   };
 
+  // --- ĐÃ FIX HÀM SUBMIT ---
   const handleChatSubmit = async () => {
     if ((!inputMessage.trim() && !attachment) || loading) return;
 
@@ -167,28 +168,34 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
         return { role: msg.role === 'model' ? 'model' : 'user', parts: parts };
       });
 
+      // 1. GỌI GEMINI AI
       const aiResponseText = await sendChatToGemini(apiHistory);
       const finalMessages = [...newMessages, { role: 'model', text: aiResponseText }];
       setMessages(finalMessages);
 
-      try {
-        if (!currentChatId) {
-          const newChat = await createNewChat(currentUser.uid, userText, finalMessages);
-          setCurrentChatId(newChat.id); 
-          onChatUpdated(); 
-        } else {
-          await updateChat(currentChatId, finalMessages);
-          onChatUpdated(); 
+      // --- TẮT LOADING NGAY LẬP TỨC CHỖ NÀY ---
+      setLoading(false);
+
+      // 2. LƯU FIREBASE CHẠY NGẦM (BACKGROUND)
+      (async () => {
+        try {
+          if (!currentChatId) {
+            const newChat = await createNewChat(currentUser.uid, userText, finalMessages);
+            setCurrentChatId(newChat.id); 
+            onChatUpdated(); 
+          } else {
+            await updateChat(currentChatId, finalMessages);
+            onChatUpdated(); 
+          }
+        } catch (dbError) {
+          console.error("Lỗi Database Firebase:", dbError);
         }
-      } catch (dbError) {
-        console.error("Lỗi Database Firebase:", dbError);
-      }
+      })();
 
     } catch (error) {
       console.error("Lỗi gọi Gemini:", error);
       setMessages(prev => [...prev, { role: 'model', text: "Lỗi phản hồi từ AI, vui lòng thử lại." }]);
-    } finally {
-      setLoading(false); 
+      setLoading(false); // Nhớ tắt loading nếu lỡ API Gemini chết
     }
   };
 
