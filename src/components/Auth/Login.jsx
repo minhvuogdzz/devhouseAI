@@ -86,7 +86,7 @@ const Login = () => {
           </p>
           
           {/* Lưới Tính Năng Nổi Bật */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left max-w-lg mx-auto lg:mx-0">
+          <div className="grid grid-cols-1 max-sm:hidden sm:grid-cols-2 gap-4 text-left max-w-lg mx-auto lg:mx-0">
             <div className="flex items-center gap-3 bg-white/5 p-3.5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
               <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-lg">💻</div>
               <span className="text-sm font-medium text-slate-200">Viết code & Tối ưu</span>
