@@ -4,7 +4,10 @@ import AIToolbox from './components/Tools/AIToolbox';
 import Toast from './components/UI/Toast';
 import Login from './components/Auth/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { getUserChats } from './services/chatService';
+
+// IMPORT CÁC HÀM REAL-TIME TỪ FIREBASE
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from './services/firebase';
 
 const MainApp = () => {
   const { currentUser, logout } = useAuth();
@@ -32,43 +35,24 @@ const MainApp = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const loadChats = async () => {
-    if (currentUser) {
-      try {
-        const userChats = await getUserChats(currentUser.uid);
-        setChats(userChats);
-      } catch (error) {
-        console.error("Lỗi tải lịch sử chat:", error);
-      }
-    }
-  };
-
+  // HÀM MỚI: TỰ ĐỘNG LẮNG NGHE LỊCH SỬ CHAT (REAL-TIME, 0ms DELAY)
   useEffect(() => {
-    loadChats();
+    if (!currentUser) return;
+
+    const q = query(collection(db, 'chats'), where('userId', '==', currentUser.uid));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const userChats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Sắp xếp chat mới nhất lên đầu
+      userChats.sort((a, b) => b.updatedAt - a.updatedAt);
+      setChats(userChats);
+    });
+
+    return () => unsubscribe();
   }, [currentUser]);
 
-  const handleChatUpdated = (optimisticData) => {
-    if (optimisticData) {
-      setChats(prev => {
-        let updatedChats = [...prev];
-        const index = updatedChats.findIndex(c => c.id === optimisticData.id);
-        
-        if (index > -1) {
-          const [item] = updatedChats.splice(index, 1);
-          item.updatedAt = Date.now();
-          updatedChats.unshift(item);
-        } else if (optimisticData.title) {
-          updatedChats.unshift({
-            id: optimisticData.id,
-            title: optimisticData.title,
-            updatedAt: Date.now()
-          });
-        }
-        return updatedChats;
-      });
-    }
-    loadChats();
-  };
+  // Giữ lại hàm rỗng để không bị lỗi prop khi truyền xuống AIToolbox
+  const handleChatUpdated = () => {};
 
   const triggerToast = () => {
     setShowToast(true);
@@ -137,9 +121,9 @@ const MainApp = () => {
 
         <div className="p-4 border-t border-white/10 flex items-center justify-between bg-slate-900/50 whitespace-nowrap">
           <div className="flex items-center gap-3 overflow-hidden pr-2">
-            <img src={currentUser.photoURL} alt="Avatar" className="w-9 h-9 rounded-full border border-slate-700 shrink-0" />
+            <img src={currentUser.photoURL || `https://ui-avatars.com/api/?name=${currentUser.email}&background=0D8ABC&color=fff`} alt="Avatar" className="w-9 h-9 rounded-full border border-slate-700 shrink-0" />
             <div className="flex flex-col truncate">
-              <span className="text-sm font-bold text-slate-200 truncate">{currentUser.displayName}</span>
+              <span className="text-sm font-bold text-slate-200 truncate">{currentUser.displayName || currentUser.email.split('@')[0]}</span>
               <span className="text-[10px] text-sky-400">Dev House Member</span>
             </div>
           </div>
