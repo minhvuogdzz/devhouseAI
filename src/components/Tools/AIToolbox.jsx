@@ -14,16 +14,18 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
   const [attachment, setAttachment] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   
-  // Ref cho 2 loại input khác nhau
+  // STATE: Quản lý ghi âm
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef(null);
+
+  // STATE: Ref cho Tách riêng Image và Doc
   const imageInputRef = useRef(null);
   const docInputRef = useRef(null);
   
   const textareaRef = useRef(null);
   const messagesEndRef = useRef(null);
-  
-  const isCreatingChatRef = useRef(false);
 
-  const initialMessage = { role: 'model', text: 'Chào bạn, tôi là AI của Dev House. Tôi có thể giúp gì cho bạn không ?' };
+  const initialMessage = { role: 'model', text: 'Chào bạn, tôi là AI của Dev House. Tôi có thể giúp gì cho bạn ?' };
   const [messages, setMessages] = useState([initialMessage]);
 
   const scrollToBottom = () => {
@@ -34,6 +36,30 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
     if (messages.length > 1) scrollToBottom();
   }, [messages]);
 
+  // CÀI ĐẶT BỘ NHẬN DIỆN GIỌNG NÓI
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false; 
+      recognitionRef.current.lang = 'vi-VN';
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setInputMessage(prev => prev + (prev ? ' ' : '') + transcript);
+      };
+
+      recognitionRef.current.onerror = (event) => {
+        console.error("Lỗi Micro:", event.error);
+        setIsRecording(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsRecording(false);
+      };
+    }
+  }, []);
+
   useEffect(() => {
     if (!currentChatId) {
       setMessages([initialMessage]);
@@ -41,16 +67,11 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
       setInputMessage("");
       setAttachment(null);
     }
-  }, [resetTrigger, currentChatId]);
+  }, [currentChatId, resetTrigger]);
 
   useEffect(() => {
     const fetchMessages = async () => {
       if (currentChatId) {
-        if (isCreatingChatRef.current) {
-            isCreatingChatRef.current = false;
-            return;
-        }
-
         setLoading(true);
         try {
           const oldMessages = await getChatDetail(currentChatId);
@@ -58,12 +79,27 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
         } catch (error) {
           console.error("Lỗi tải tin nhắn từ Database:", error);
         } finally {
-          setLoading(false);
+          setLoading(false); 
         }
       }
     };
     fetchMessages();
   }, [currentChatId]);
+
+  // HÀM BẬT/TẮT GHI ÂM
+  const toggleRecording = () => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      if (recognitionRef.current) {
+        recognitionRef.current.start();
+        setIsRecording(true);
+      } else {
+        alert("Trình duyệt của bạn không hỗ trợ nhận diện giọng nói. Vui lòng sử dụng Google Chrome hoặc Microsoft Edge.");
+      }
+    }
+  };
 
   const processFile = (file) => {
     if (!file) return;
@@ -80,17 +116,6 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
       });
     };
     reader.readAsDataURL(file);
-  };
-
-  // Handler riêng cho từng nút
-  const handleImageChange = (e) => {
-    processFile(e.target.files[0]);
-    e.target.value = ''; 
-  };
-
-  const handleDocChange = (e) => {
-    processFile(e.target.files[0]);
-    e.target.value = ''; 
   };
 
   const handlePaste = (e) => {
@@ -122,6 +147,11 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
     setInputMessage("");
     setAttachment(null); 
     if (textareaRef.current) textareaRef.current.style.height = '46px';
+    
+    if (isRecording) {
+        recognitionRef.current?.stop();
+        setIsRecording(false);
+    }
 
     const newMessages = [...messages, { role: 'user', text: userText, attachment: currentAttachment }];
     setMessages(newMessages);
@@ -139,33 +169,25 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
 
       const aiResponseText = await sendChatToGemini(apiHistory);
       const finalMessages = [...newMessages, { role: 'model', text: aiResponseText }];
-      
       setMessages(finalMessages);
-      setLoading(false); 
 
-      (async () => {
-        try {
-          if (!currentChatId) {
-            isCreatingChatRef.current = true; 
-            const newChat = await createNewChat(currentUser.uid, userText, finalMessages);
-            setCurrentChatId(newChat.id); 
-            
-            onChatUpdated({ 
-                id: newChat.id, 
-                title: userText.substring(0, 30) + (userText.length > 30 ? '...' : '') 
-            }); 
-          } else {
-            await updateChat(currentChatId, finalMessages);
-            onChatUpdated({ id: currentChatId }); 
-          }
-        } catch (dbError) {
-          console.error("Lỗi Database Firebase:", dbError);
+      try {
+        if (!currentChatId) {
+          const newChat = await createNewChat(currentUser.uid, userText, finalMessages);
+          setCurrentChatId(newChat.id); 
+          onChatUpdated(); 
+        } else {
+          await updateChat(currentChatId, finalMessages);
+          onChatUpdated(); 
         }
-      })();
+      } catch (dbError) {
+        console.error("Lỗi Database Firebase:", dbError);
+      }
 
     } catch (error) {
       console.error("Lỗi gọi Gemini:", error);
       setMessages(prev => [...prev, { role: 'model', text: "Lỗi phản hồi từ AI, vui lòng thử lại." }]);
+    } finally {
       setLoading(false); 
     }
   };
@@ -202,7 +224,6 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
                                   <img src={msg.attachment.previewUrl || msg.attachment.base64} alt="Đính kèm" className="max-w-full rounded-xl border border-white/20 shadow-lg object-cover" style={{ maxHeight: '250px' }} />
                               ) : (
                                   <div className="flex items-center gap-3 bg-white/10 p-3 rounded-lg border border-white/20">
-                                      <svg className="w-6 h-6 text-red-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"></path></svg>
                                       <span className="text-sm font-medium">{msg.attachment.name}</span>
                                   </div>
                               )}
@@ -261,9 +282,9 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
           onDragLeave={(e) => {e.preventDefault(); setIsDragging(false);}}
           onDrop={handleDrop}
       >
-          {/* 2 Input ẩn để chọn file */}
-          <input type="file" ref={imageInputRef} onChange={handleImageChange} accept="image/*" className="hidden" />
-          <input type="file" ref={docInputRef} onChange={handleDocChange} accept=".pdf,.txt,.csv,.json" className="hidden" />
+          {/* Tách lại 2 Input cho 2 nút (Ảnh và File) */}
+          <input type="file" ref={imageInputRef} onChange={(e) => {processFile(e.target.files[0]); e.target.value='';}} accept="image/*" className="hidden" />
+          <input type="file" ref={docInputRef} onChange={(e) => {processFile(e.target.files[0]); e.target.value='';}} accept=".pdf,.txt,.csv,.json" className="hidden" />
 
           {isDragging && (
               <div className="absolute inset-0 z-50 bg-slate-900/90 rounded-3xl flex items-center justify-center border-2 border-dashed border-sky-400">
@@ -277,37 +298,41 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
                   {attachment.isImage ? (
                       <img src={attachment.previewUrl} alt="Preview" className="w-12 h-12 object-cover rounded-md border border-white/10" />
                   ) : (
-                      <div className="w-12 h-12 flex items-center justify-center bg-slate-700 rounded-md text-red-400">
-                          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"></path></svg>
-                      </div>
+                      <div className="w-12 h-12 flex items-center justify-center bg-slate-700 rounded-md text-sky-400">📎</div>
                   )}
                   <span className="text-xs text-slate-300 font-medium truncate max-w-[150px]">{attachment.name || "Tệp đính kèm"}</span>
                   <button onClick={() => setAttachment(null)} className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow-lg">×</button>
                 </div>
               )}
 
-              <div className="flex items-end gap-2 w-full pr-2">
+              <div className="flex items-end gap-1 lg:gap-2 w-full pr-2">
                   
-                  {/* CỤM NÚT ĐÍNH KÈM CHIA LÀM 2 */}
+                  {/* BỘ 3 NÚT: ẢNH - FILE - MICRO */}
                   <div className="flex mb-1 ml-1">
-                      {/* Nút Hình Ảnh */}
+                      {/* Nút đính kèm Hình Ảnh */}
                       <button onClick={() => imageInputRef.current.click()} disabled={loading} className="p-2.5 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded-full transition-colors flex-shrink-0" title="Tải lên hình ảnh">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                       </button>
 
-                      {/* Nút Tài Liệu */}
+                      {/* Nút đính kèm File / Tài liệu */}
                       <button onClick={() => docInputRef.current.click()} disabled={loading} className="p-2.5 text-slate-400 hover:text-purple-400 hover:bg-slate-800 rounded-full transition-colors flex-shrink-0" title="Tải lên tài liệu (PDF, TXT...)">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                      </button>
+
+                      {/* Nút Ghi Âm Micro */}
+                      <button onClick={toggleRecording} disabled={loading} className={`p-2.5 rounded-full transition-colors flex-shrink-0 ${isRecording ? 'text-red-500 bg-red-500/20 animate-pulse' : 'text-slate-400 hover:text-sky-400 hover:bg-slate-800'}`} title={isRecording ? "Đang thu âm... (Bấm để dừng)" : "Nhập bằng giọng nói"}>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
                       </button>
                   </div>
 
                   <textarea 
                       ref={textareaRef} value={inputMessage} onChange={handleInputResize} onKeyDown={handleKeyDown} onPaste={handlePaste}
-                      placeholder="Hỏi bất cứ điều gì bạn muốn..."
+                      placeholder={isRecording ? "Đang nghe..." : "Hỏi bất cứ điều gì..."}
                       className="w-full max-h-[150px] bg-transparent text-slate-200 text-sm p-3 focus:outline-none resize-none overflow-y-auto custom-scrollbar"
                       style={{ height: '46px' }} disabled={loading}
                   />
 
+                  {/* NÚT GỬI */}
                   <button onClick={handleChatSubmit} disabled={loading || (!inputMessage.trim() && !attachment)} className={`mb-1 p-2.5 rounded-full transition-all flex-shrink-0 ${(inputMessage.trim() || attachment) ? 'bg-sky-500 text-white hover:bg-sky-400' : 'bg-slate-800 text-slate-500'}`}>
                       <svg className="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
                   </button>

@@ -108,10 +108,10 @@ const MainApp = () => {
           bg-slate-900 border-r border-white/10 flex flex-col shrink-0 overflow-hidden
         `}
       >
-        <div className="p-4 flex justify-center items-center whitespace-nowrap border-b border-white/10">
+        <div className="p-4 flex justify-center items-center whitespace-nowrap">
           <button 
             onClick={handleNewChat} 
-            className="w-full flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 text-white p-2.5 rounded-xl font-bold transition-all shadow-lg hover:shadow-sky-500/30"
+            className="w-full flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 text-white p-2 rounded-xl font-bold transition-all shadow-lg hover:shadow-sky-500/30"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
             Đoạn chat mới
