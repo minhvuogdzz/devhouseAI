@@ -40,7 +40,7 @@ const SYSTEM_PROMPT = `
 
     6. 
     - Họ tên: Lê Trương Nguyễn Hoàng - Trưởng Phòng Hành chính - Nhân sự. 
-    - Quê quán: Phú Thọ (trước sáp nhập là tỉnh Vĩnh Phúc).
+    - Quê quán: Hà Nội.
     - Hiện đang giữ vai trò cao trong việc tổ chức các sự kiện và điều phối nhân sự công ty, thu chi thủ quỹ
     
     THÔNG TIN VỀ DEV HOUSE GROUP:

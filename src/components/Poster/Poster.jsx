@@ -37,7 +37,7 @@ const ContactLink = ({ platform, info, link, iconSvg, hoverColor }) => (
 
 const Poster = () => {
   return (
-    <div className="relative shadow-[0_0_100px_rgba(56,189,248,0.2)] rounded-xl overflow-hidden w-full max-w-[1200px] mx-auto mt-4 lg:mt-10 min-h-[630px] lg:h-auto">
+    <div className="relative shadow-[0_0_100px_rgba(56,189,248,0.2)] rounded-xl overflow-hidden w-full mx-auto mt-4 lg:mt-10 min-h-[630px] lg:h-auto">
       {/* Background Container */}
       <div className="w-full h-full bg-[radial-gradient(circle_at_top_left,#0c4a6e_0%,#020617_100%)] relative border border-sky-400/20 flex flex-col lg:flex-row">
         
