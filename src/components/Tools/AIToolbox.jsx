@@ -14,6 +14,18 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
   const [attachment, setAttachment] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   
+  // ==========================================
+  // BỘ KHÓA CHỐNG ĐẺ NHIỀU LỊCH SỬ (RACE CONDITION)
+  // ==========================================
+  const chatIdRef = useRef(currentChatId);
+  const isCreatingNewRef = useRef(false);
+  const createChatPromiseRef = useRef(null); // Ổ khóa lưu trạng thái tạo phòng
+
+  // Mỏ neo ID theo thời gian thực
+  useEffect(() => {
+    chatIdRef.current = currentChatId;
+  }, [currentChatId]);
+
   // STATE: Quản lý ghi âm
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef(null);
@@ -60,18 +72,25 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
     }
   }, []);
 
+  // KHI BẤM "ĐOẠN CHAT MỚI"
   useEffect(() => {
     if (!currentChatId) {
       setMessages([initialMessage]);
       setLoading(false); 
       setInputMessage("");
       setAttachment(null);
+      createChatPromiseRef.current = null; // Bắt buộc mở khóa khi tạo chat mới
     }
   }, [currentChatId, resetTrigger]);
 
+  // KHI CLICK VÀO LỊCH SỬ CŨ BÊN SIDEBAR
   useEffect(() => {
     const fetchMessages = async () => {
       if (currentChatId) {
+        if (isCreatingNewRef.current) {
+            isCreatingNewRef.current = false;
+            return;
+        }
         setLoading(true);
         try {
           const oldMessages = await getChatDetail(currentChatId);
@@ -138,7 +157,9 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
     }
   };
 
-  // --- ĐÃ FIX HÀM SUBMIT ---
+  // ==========================================
+  // HÀM SUBMIT TIN NHẮN ĐÃ TỐI ƯU CỰC MẠNH
+  // ==========================================
   const handleChatSubmit = async () => {
     if ((!inputMessage.trim() && !attachment) || loading) return;
 
@@ -156,7 +177,7 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
 
     const newMessages = [...messages, { role: 'user', text: userText, attachment: currentAttachment }];
     setMessages(newMessages);
-    setLoading(true);
+    setLoading(true); // Khóa màn hình để đợi AI
 
     try {
       const apiHistory = newMessages.map(msg => {
@@ -168,24 +189,39 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
         return { role: msg.role === 'model' ? 'model' : 'user', parts: parts };
       });
 
-      // 1. GỌI GEMINI AI
+      // BƯỚC 1: LẤY CÂU TRẢ LỜI TỪ AI
       const aiResponseText = await sendChatToGemini(apiHistory);
       const finalMessages = [...newMessages, { role: 'model', text: aiResponseText }];
       setMessages(finalMessages);
+      
+      // Mở khóa màn hình cho user chat tiếp ngay lập tức
+      setLoading(false); 
 
-      // --- TẮT LOADING NGAY LẬP TỨC CHỖ NÀY ---
-      setLoading(false);
-
-      // 2. LƯU FIREBASE CHẠY NGẦM (BACKGROUND)
+      // BƯỚC 2: LƯU FIREBASE (VỚI Ổ KHÓA THÔNG MINH)
       (async () => {
         try {
-          if (!currentChatId) {
-            const newChat = await createNewChat(currentUser.uid, userText, finalMessages);
-            setCurrentChatId(newChat.id); 
-            onChatUpdated(); 
+          if (!chatIdRef.current) {
+            
+            // Nếu chưa ai tạo phòng -> Đứng ra tạo phòng và chốt ổ khóa
+            if (!createChatPromiseRef.current) {
+              isCreatingNewRef.current = true; 
+              
+              // Giữ Promise tạo phòng vào ổ khóa
+              createChatPromiseRef.current = createNewChat(currentUser.uid, userText, finalMessages);
+              const newChat = await createChatPromiseRef.current;
+              
+              chatIdRef.current = newChat.id;
+              setCurrentChatId(newChat.id); 
+            } 
+            // Nếu phòng đang được tạo dở mà user nhắn thêm câu 2
+            else {
+              const newChat = await createChatPromiseRef.current; // Chờ phòng tạo xong
+              await updateChat(newChat.id, finalMessages); // Nhét chung vào phòng đó
+            }
+
           } else {
-            await updateChat(currentChatId, finalMessages);
-            onChatUpdated(); 
+            // Đã có phòng từ trước -> Cứ thế update vào
+            await updateChat(chatIdRef.current, finalMessages);
           }
         } catch (dbError) {
           console.error("Lỗi Database Firebase:", dbError);
@@ -195,7 +231,7 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
     } catch (error) {
       console.error("Lỗi gọi Gemini:", error);
       setMessages(prev => [...prev, { role: 'model', text: "Lỗi phản hồi từ AI, vui lòng thử lại." }]);
-      setLoading(false); // Nhớ tắt loading nếu lỡ API Gemini chết
+      setLoading(false); 
     }
   };
 
@@ -316,17 +352,14 @@ const AIToolbox = ({ currentUser, currentChatId, setCurrentChatId, onChatUpdated
                   
                   {/* BỘ 3 NÚT: ẢNH - FILE - MICRO */}
                   <div className="flex mb-1 ml-1">
-                      {/* Nút đính kèm Hình Ảnh */}
                       <button onClick={() => imageInputRef.current.click()} disabled={loading} className="p-2.5 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded-full transition-colors flex-shrink-0" title="Tải lên hình ảnh">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                       </button>
 
-                      {/* Nút đính kèm File / Tài liệu */}
                       <button onClick={() => docInputRef.current.click()} disabled={loading} className="p-2.5 text-slate-400 hover:text-purple-400 hover:bg-slate-800 rounded-full transition-colors flex-shrink-0" title="Tải lên tài liệu (PDF, TXT...)">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
                       </button>
 
-                      {/* Nút Ghi Âm Micro */}
                       <button onClick={toggleRecording} disabled={loading} className={`p-2.5 rounded-full transition-colors flex-shrink-0 ${isRecording ? 'text-red-500 bg-red-500/20 animate-pulse' : 'text-slate-400 hover:text-sky-400 hover:bg-slate-800'}`} title={isRecording ? "Đang thu âm... (Bấm để dừng)" : "Nhập bằng giọng nói"}>
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
                       </button>
